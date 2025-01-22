@@ -10,10 +10,9 @@ import {
 } from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
-import RNPrint from "react-native-print";
-import Share from "react-native-share";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "../../FirebaseConfig/firebaseConfig";
+import * as FileSystem from "expo-file-system";
 
 // Function to generate bill
 const generateBill = async (caseDetails) => {
@@ -45,30 +44,32 @@ const generateBill = async (caseDetails) => {
         <th style="border: 1px solid #000; padding: 8px;">Amount</th>
         <td style="border: 1px solid #000; padding: 8px;">${expense}</td>
       </tr>
+      <tr>
+        <th style="border: 1px solid #000; padding: 8px;">Payment Method</th>
+        <td style="border: 1px solid #000; padding: 8px;">Cash</td>
+      </tr>
+      <tr>
+        <th style="border: 1px solid #000; padding: 8px;">Payment Status</th>
+        <td style="border: 1px solid #000; padding: 8px;">Paid</td>
+      </tr>
     </table>
   `;
 
-  // Create options for printing
-  const options = {
-    html: billContent,
-    fileName: `Bill_${id}`,
-    directory: "Documents",
-  };
+  // Create a new folder for bills in the root directory
+  const folderPath = `${FileSystem.cacheDirectory}/Bills`;
+  await FileSystem.makeDirectoryAsync(folderPath, { intermediates: true });
 
-  try {
-    // Print the bill
-    await RNPrint.print(options);
-
-    // Share the bill
-    const shareOptions = {
-      url: `file://${options.fileName}.pdf`,
-      title: `Bill_${id}`,
-      message: `Bill for case ${id}`,
-    };
-    await Share.open(shareOptions);
-  } catch (error) {
-    console.error("Error generating bill:", error);
-  }
+  // Create a new file with the bill content
+  const filePath = `${folderPath}/bill_${id}.html`;
+  FileSystem.writeAsStringAsync(filePath, billContent)
+    .then(() => {
+      console.log("Bill saved to file");
+      console.log("file path", filePath);
+      console.log("folder path", FileSystem);
+    })
+    .catch((error) => {
+      console.error("Error saving bill to file:", error);
+    });
 };
 
 // Function to handle WhatsApp message
@@ -80,28 +81,27 @@ const handleWhatsAppMessage = (contactNo, docId) => {
 };
 
 // Function to fetch completed cases from Firestore
-const getCompletedCases = async () => {
-  try {
-    const q = query(
-      collection(db, "PendingCases"),
-      where("status", "==", "Completed")
-    );
-    const querySnapshot = await getDocs(q);
-    const cases = [];
-    querySnapshot.forEach((doc) => {
-      cases.push({ id: doc.id, ...doc.data() });
-    });
-    setPendingCasesData(cases);
-    console.log("Completed cases fetched successfully", cases);
-  } catch (e) {
-    console.log("Completed Case Exception - " + e.message);
-  }
-};
 
 // Main component
 export default function PendingCases() {
   const [pendingCasesData, setPendingCasesData] = useState([]);
-
+  const getCompletedCases = async () => {
+    try {
+      const q = query(
+        collection(db, "PendingCases"),
+        where("status", "==", "Completed")
+      );
+      const querySnapshot = await getDocs(q);
+      const cases = [];
+      querySnapshot.forEach((doc) => {
+        cases.push({ id: doc.id, ...doc.data() });
+      });
+      setPendingCasesData(cases);
+      console.log("Completed cases fetched successfully", cases);
+    } catch (e) {
+      console.log("Completed Case Exception - " + e.message);
+    }
+  };
   useEffect(() => {
     getCompletedCases();
   }, []);
