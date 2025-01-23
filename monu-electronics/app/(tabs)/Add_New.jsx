@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,21 +10,86 @@ import {
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { PermissionsAndroid, Platform } from "react-native";
+import Autocomplete from "react-native-autocomplete-input";
 
 import Colors from "../../constant/Colors";
 import { launchImageLibrary } from "react-native-image-picker";
 import { setDoc, doc } from "firebase/firestore";
 import { db } from "../../FirebaseConfig/firebaseConfig";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
+
+const brands = [
+  "Samsung",
+  "LG",
+  "Sony",
+  "MI",
+  "Micromax",
+  "Realme",
+  "Toshiba",
+  "AKAI",
+  "Sunsui",
+  "Videocon",
+  "Onida",
+  "Haier",
+  "Phillips",
+  "Hisense",
+  "OnePlus",
+  "TCL",
+  "BPL",
+  "Xiomi",
+  "Sharp",
+  "Blaupunkt",
+  "BOE",
+  "JVC",
+  "Panasonic",
+];
+
+const screenSizes = [
+  "21 inches",
+  "28 inches",
+  "32 inches",
+  "40 inches",
+  "50 inches",
+  "55 inches",
+];
+
+const problems = [
+  "Panel",
+  "Screen",
+  "Backlight",
+  "Sound",
+  "Mother Board",
+  "Power Supply",
+];
 
 export default function Add_New() {
   const [contactNo, setContactNo] = useState("");
+  const [customerName, setCustomerName] = useState("");
   const [selectedBrand, setSelectedBrand] = useState("");
   const [screenRatio, setScreenRatio] = useState("");
   const [selectedProblem, setSelectedProblem] = useState("");
-  const [receiverName, setReceiverName] = useState("");
   const [expense, setExpense] = useState("");
   const [images, setImages] = useState([]); // State to store selected images
   const [serviceType, setServiceType] = useState(""); // State to store service type (Shop or Field)
+  const [query, setQuery] = useState("");
+  const [suggestions, setSuggestions] = useState(brands);
+  const [screenSizeQuery, setScreenSizeQuery] = useState("");
+  const [screenSizeSuggestions, setScreenSizeSuggestions] =
+    useState(screenSizes);
+  const [problemQuery, setProblemQuery] = useState("");
+  const [problemSuggestions, setProblemSuggestions] = useState(problems);
+  const [receiverName, setReceiverName] = useState("");
+
+  const auth = getAuth();
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setReceiverName(user.displayName);
+      }
+    });
+    return unsubscribe;
+  }, []);
 
   const requestPermissions = async () => {
     if (Platform.OS === "android") {
@@ -58,8 +123,9 @@ export default function Add_New() {
     };
 
     launchImageLibrary(options, (response) => {
+      console.log(response);
       if (response.didCancel) {
-        console.log("User  cancelled image picker");
+        console.log("User cancelled image picker");
       } else if (response.error) {
         console.log("ImagePicker Error: ", response.error);
       } else if (response.assets) {
@@ -73,6 +139,7 @@ export default function Add_New() {
     // Handle form submission logic here
     console.log({
       contactNo,
+      customerName,
       selectedBrand,
       screenRatio,
       selectedProblem,
@@ -82,10 +149,9 @@ export default function Add_New() {
       serviceType, // Include service type in the form submission
     });
     if (
-      !contactNo ||
+      (!contactNo && !customerName) ||
       !selectedBrand ||
       !selectedProblem ||
-      !receiverName ||
       !expense ||
       !serviceType
     ) {
@@ -96,6 +162,7 @@ export default function Add_New() {
         const docId = Date.now().toString();
         await setDoc(doc(db, "PendingCases", docId), {
           contactNo: contactNo,
+          customerName: customerName,
           selectedBrand: selectedBrand,
           screenRatio: screenRatio,
           selectedProblem: selectedProblem,
@@ -109,10 +176,10 @@ export default function Add_New() {
         });
         alert("Data saved successfully with docId: " + docId);
         setContactNo("");
+        setCustomerName("");
         setSelectedBrand("");
         setScreenRatio("");
         setSelectedProblem("");
-        setReceiverName("");
         setExpense("");
         setImages([]);
         setServiceType("");
@@ -122,98 +189,123 @@ export default function Add_New() {
     }
   };
 
+  const handleAddSuggestion = () => {
+    if (query && !suggestions.includes(query)) {
+      setSuggestions([...suggestions, query]);
+    }
+  };
+
+  const handleAddScreenSizeSuggestion = () => {
+    if (screenSizeQuery && !screenSizeSuggestions.includes(screenSizeQuery)) {
+      setScreenSizeSuggestions([...screenSizeSuggestions, screenSizeQuery]);
+    }
+  };
+
+  const handleAddProblemSuggestion = () => {
+    if (problemQuery && !problemSuggestions.includes(problemQuery)) {
+      setProblemSuggestions([...problemSuggestions, problemQuery]);
+    }
+  };
+
   return (
     <ScrollView style={styles.container}>
       {/* Customer Contact Number */}
-      <Text style={styles.label}>Customer Contact Number*</Text>
+      <Text style={styles.label}>Customer Contact Number</Text>
       <TextInput
         style={styles.input}
         placeholder="Enter Contact Number"
         value={contactNo}
         onChangeText={setContactNo}
         keyboardType="phone-pad"
-        required
+      />
+
+      {/* Customer Name */}
+      <Text style={styles.label}>Customer Name</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Enter Customer Name"
+        value={customerName}
+        onChangeText={setCustomerName}
       />
 
       {/* Select Brand Dropdown */}
-      <Text style={styles.label}>Select Brand</Text>
-      <View style={styles.pickerContainer}>
-        <Picker
-          selectedValue={selectedBrand}
-          style={styles.picker}
-          onValueChange={(itemValue) => setSelectedBrand(itemValue)}
-        >
-          <Picker.Item label="Select Brand" value="" />
-          <Picker.Item label="Samsung" value="Samsung" />
-          <Picker.Item label="LG" value="LG" />
-          <Picker.Item label="Sony" value="Sony" />
-          <Picker.Item label="MI" value="MI" />
-          <Picker.Item label="Micromax" value="Micromax" />
-          <Picker.Item label="Realme" value="Realme" />
-          <Picker.Item label="Toshiba" value="Toshiba" />
-          <Picker.Item label="AKAI" value="AKAI" />
-          <Picker.Item label="Sunsui" value="Sunsui" />
-          <Picker.Item label="Videocon" value="Videocon" />
-          <Picker.Item label="Onida" value="Onida" />
-          <Picker.Item label="Haier" value="Haier" />
-          <Picker.Item label="Phillips" value="Phillips" />
-          <Picker.Item label="Hisense" value="Hisense" />
-          <Picker.Item label="OnePlus" value="OnePlus" />
-          <Picker.Item label="TCL" value="TCL" />
-          <Picker.Item label="BPL" value="BPL" />
-          <Picker.Item label="Xiomi" value="Xiomi" />
-          <Picker.Item label="Sharp" value="Sharp" />
-          <Picker.Item label="Blaupunkt" value="Blaupunkt" />
-          <Picker.Item label="BOE" value="BOE" />
-          <Picker.Item label="JVC" value="JVC" />
-          <Picker.Item label="Panasonic" value="Panasonic" />
-        </Picker>
+      <Text style={styles.label}>Brand</Text>
+      <View>
+        <Autocomplete
+          data={
+            query
+              ? suggestions.filter((brand) =>
+                  brand.toLowerCase().includes(query.toLowerCase())
+                )
+              : []
+          }
+          defaultValue={query}
+          onChangeText={(text) => setQuery(text)}
+          placeholder="Type brand name"
+          onSelectItem={(item) => {
+            setSelectedBrand(item);
+            setQuery(item);
+          }}
+        />
+        {query && !suggestions.includes(query) && (
+          <TouchableOpacity onPress={handleAddSuggestion}>
+            <Text>Add "{query}" to suggestions</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
-      {/* Select Screen Ratio Dropdown */}
-      <Text style={styles.label}> Screen Size (in inches)</Text>
-      <View style={styles.pickerContainer}>
-        <Picker
-          selectedValue={screenRatio}
-          style={styles.picker}
-          onValueChange={(itemValue) => setScreenRatio(itemValue)}
-        >
-          <Picker.Item label="Select Screen Size" value="" />
-          <Picker.Item label="21 inches" value="21" />
-          <Picker.Item label="28 inches" value="28" />
-          <Picker.Item label="32 inches" value="32" />
-          <Picker.Item label="40 inches" value="40" />
-          <Picker.Item label="50 inches" value="50" />
-          <Picker.Item label="55 inches" value="55" />
-        </Picker>
+      {/* Select Screen Size */}
+      <Text style={styles.label}>Screen Size (in inches)</Text>
+      <View>
+        <Autocomplete
+          data={
+            screenSizeQuery
+              ? screenSizeSuggestions.filter((size) =>
+                  size.toLowerCase().includes(screenSizeQuery.toLowerCase())
+                )
+              : []
+          }
+          defaultValue={screenSizeQuery}
+          onChangeText={(text) => setScreenSizeQuery(text)}
+          placeholder="Type screen size"
+          onSelectItem={(item) => {
+            setScreenRatio(item);
+            setScreenSizeQuery(item);
+          }}
+        />
+        {screenSizeQuery &&
+          !screenSizeSuggestions.includes(screenSizeQuery) && (
+            <TouchableOpacity onPress={handleAddScreenSizeSuggestion}>
+              <Text>Add "{screenSizeQuery}" to suggestions</Text>
+            </TouchableOpacity>
+          )}
       </View>
 
-      {/* Select Problem Dropdown */}
+      {/* Select Problem */}
       <Text style={styles.label}>Select Problem</Text>
-      <View style={styles.pickerContainer}>
-        <Picker
-          selectedValue={selectedProblem}
-          style={styles.picker}
-          onValueChange={(itemValue) => setSelectedProblem(itemValue)}
-        >
-          <Picker.Item label="Select Problem" value="" />
-          <Picker.Item label="Panel" value="Panel" />
-          <Picker.Item label="Screen" value="Screen" />
-          <Picker.Item label="Backlight" value="Backlight" />
-          <Picker.Item label="Sound" value="Sound" />
-          <Picker.Item label="Mother Board" value="MotherBoard" />
-          <Picker.Item label="Power Supply" value="PowerSupply" />
-        </Picker>
+      <View>
+        <Autocomplete
+          data={
+            problemQuery
+              ? problemSuggestions.filter((problem) =>
+                  problem.toLowerCase().includes(problemQuery.toLowerCase())
+                )
+              : []
+          }
+          defaultValue={problemQuery}
+          onChangeText={(text) => setProblemQuery(text)}
+          placeholder="Type problem"
+          onSelectItem={(item) => {
+            setSelectedProblem(item);
+            setProblemQuery(item);
+          }}
+        />
+        {problemQuery && !problemSuggestions.includes(problemQuery) && (
+          <TouchableOpacity onPress={handleAddProblemSuggestion}>
+            <Text>Add "{problemQuery}" to suggestions</Text>
+          </TouchableOpacity>
+        )}
       </View>
-
-      {/* Receiver Name */}
-      <Text style={styles.label}>Receiver Name</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Enter Receiver Name"
-        value={receiverName}
-        onChangeText={setReceiverName}
-      />
 
       {/* Expense */}
       <Text style={styles.label}>Expense</Text>
@@ -321,5 +413,11 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 17,
     marginBottom: 20,
+  },
+  autocompleteContainer: {
+    borderColor: Colors.primary,
+    borderWidth: 1,
+    borderRadius: 5,
+    marginBottom: 15,
   },
 });
