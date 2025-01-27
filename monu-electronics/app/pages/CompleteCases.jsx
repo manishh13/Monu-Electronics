@@ -13,6 +13,7 @@ import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "../../FirebaseConfig/firebaseConfig";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
+import * as Print from "expo-print";
 
 // Function to generate bill
 const generateBill = async (caseDetails) => {
@@ -67,12 +68,26 @@ const generateBill = async (caseDetails) => {
       await FileSystem.makeDirectoryAsync(folderPath, { intermediates: true });
     }
 
-    // Create a new file with the bill content
-    const filePath = `${folderPath}/bill_${id}.html`;
+    // Create a new PDF file with the bill content
+    const filePath = `${folderPath}/bill_${id}.pdf`;
     console.log("File Path:", filePath);
 
-    await FileSystem.writeAsStringAsync(filePath, billContent);
-    console.log("Bill saved to file:", filePath);
+    // Generate PDF and get the file URI
+    const { uri } = await Print.printToFileAsync({
+      html: billContent,
+      width: 595, // A4 width in pixels
+      height: 842, // A4 height in pixels
+    });
+
+    console.log("PDF saved to file:", uri);
+
+    // Copy the generated PDF to the desired location
+    await FileSystem.copyAsync({
+      from: uri,
+      to: filePath,
+    });
+
+    console.log("File copied successfully to:", filePath);
 
     // Verify the file exists
     const fileInfo = await FileSystem.getInfoAsync(filePath);
