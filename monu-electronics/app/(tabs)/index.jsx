@@ -54,7 +54,9 @@ export default function Home() {
   const handleCompletedCases = () => {
     router.push("/pages/CompleteCases");
   };
-
+  const handleIncompleteForm = () => {
+    router.push("/pages/IncompleteForm");
+  };
   return (
     <>
       {/* Header Section */}
@@ -95,16 +97,28 @@ export default function Home() {
           </TouchableOpacity>
 
           {/* Box 5 */}
-          <TouchableOpacity>
+          <TouchableOpacity onPress={handleIncompleteForm}>
             <View style={[styles.box, { width: boxSize, height: boxSize }]}>
-              <Text style={styles.boxText}>Box 5</Text>
+              <Text style={styles.boxText}>IncompleteForm</Text>
             </View>
           </TouchableOpacity>
 
           {/* Box 6 */}
           <TouchableOpacity>
             <View style={[styles.box, { width: boxSize, height: boxSize }]}>
-              <Text style={styles.boxText}>Box 6</Text>
+              <Text style={styles.boxText}>Lab</Text>
+            </View>
+          </TouchableOpacity>
+          {/* Box 7*/}
+          <TouchableOpacity>
+            <View style={[styles.box, { width: boxSize, height: boxSize }]}>
+              <Text style={styles.boxText}>Shop</Text>
+            </View>
+          </TouchableOpacity>
+          {/* Box 8 */}
+          <TouchableOpacity>
+            <View style={[styles.box, { width: boxSize, height: boxSize }]}>
+              <Text style={styles.boxText}>Field</Text>
             </View>
           </TouchableOpacity>
         </View>

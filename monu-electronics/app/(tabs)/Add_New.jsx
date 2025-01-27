@@ -6,14 +6,15 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
+  FlatList,
   ScrollView,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { PermissionsAndroid, Platform } from "react-native";
 import Autocomplete from "react-native-autocomplete-input";
-
+import { useLocalSearchParams } from "expo-router";
 import Colors from "../../constant/Colors";
-import { launchImageLibrary } from "react-native-image-picker";
+import { launchCamera } from "react-native-image-picker";
 import { setDoc, doc } from "firebase/firestore";
 import { db } from "../../FirebaseConfig/firebaseConfig";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
@@ -63,13 +64,17 @@ const problems = [
 ];
 
 export default function Add_New() {
+  // const params = useLocalSearchParams();
+  // const item = JSON.parse(params.item);
+  // console.log("Adding new item", item);
+  // console.log("edit item", item);
   const [contactNo, setContactNo] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [selectedBrand, setSelectedBrand] = useState("");
   const [screenRatio, setScreenRatio] = useState("");
   const [selectedProblem, setSelectedProblem] = useState("");
   const [expense, setExpense] = useState("");
-  const [images, setImages] = useState([]); // State to store selected images
+  const [images, setImages] = useState([]); // State to store clicked images
   const [serviceType, setServiceType] = useState(""); // State to store service type (Shop or Field)
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState(brands);
@@ -79,6 +84,10 @@ export default function Add_New() {
   const [problemQuery, setProblemQuery] = useState("");
   const [problemSuggestions, setProblemSuggestions] = useState(problems);
   const [receiverName, setReceiverName] = useState("");
+  const [isFieldService, setIsFieldService] = useState(false);
+  const [isShop, setIsShop] = useState(false);
+  const [isLab, setIsLab] = useState(false);
+  const [otherExpenses, setOtherExpenses] = useState("");
 
   const auth = getAuth();
 
@@ -93,43 +102,66 @@ export default function Add_New() {
 
   const requestPermissions = async () => {
     if (Platform.OS === "android") {
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
-        {
-          title: "Storage Permission",
-          message: "App needs access to your storage to select images.",
-          buttonNeutral: "Ask Me Later",
-          buttonNegative: "Cancel",
-          buttonPositive: "OK",
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.CAMERA,
+          {
+            title: "Camera Permission",
+            message: "App needs access to your camera to click images.",
+            buttonNeutral: "Ask Me Later",
+            buttonNegative: "Cancel",
+            buttonPositive: "OK",
+          }
+        );
+        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+          const storageGranted = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+            {
+              title: "Storage Permission",
+              message: "App needs access to your storage to save images.",
+              buttonNeutral: "Ask Me Later",
+              buttonNegative: "Cancel",
+              buttonPositive: "OK",
+            }
+          );
+          if (storageGranted === PermissionsAndroid.RESULTS.GRANTED) {
+            return true;
+          } else {
+            return false;
+          }
+        } else {
+          return false;
         }
-      );
-      return granted === PermissionsAndroid.RESULTS.GRANTED;
+      } catch (err) {
+        console.warn(err);
+        return false;
+      }
+    } else {
+      return true;
     }
-    return true; // iOS doesn't require explicit permission for image picker
   };
 
-  // Function to handle image selection
-  const handleImagePicker = async () => {
-    console.log("Image selection");
+  // Function to handle image click
+  const handleImageClick = async () => {
+    console.log("Image click");
     const hasPermission = await requestPermissions();
     if (!hasPermission) {
       console.log("Permission denied");
       return;
     }
+    console.log("Permission granted");
     const options = {
       mediaType: "photo",
-      selectionLimit: 10, // Set to 10 for selecting up to 10 images
-      includeBase64: false,
+      saveToPhotos: true,
     };
-
-    launchImageLibrary(options, (response) => {
+    launchCamera(options, (response) => {
       console.log(response);
       if (response.didCancel) {
-        console.log("User cancelled image picker");
+        console.log("User   cancelled image click");
       } else if (response.error) {
-        console.log("ImagePicker Error: ", response.error);
+        console.log("ImageClick Error: ", response.error);
       } else if (response.assets) {
-        // Add selected images to the state
+        // Add clicked image to the state
         setImages([...images, ...response.assets]);
       }
     });
@@ -145,18 +177,61 @@ export default function Add_New() {
       selectedProblem,
       receiverName,
       expense,
-      images, // Log selected images
+      images, // Log clicked images
       serviceType, // Include service type in the form submission
+      otherExpenses,
     });
     if (
-      (!contactNo && !customerName) ||
-      !selectedBrand ||
-      !selectedProblem ||
-      !expense ||
-      !serviceType
+      contactNo === "" &&
+      customerName === "" &&
+      selectedBrand === "" &&
+      screenRatio === "" &&
+      selectedProblem === "" &&
+      expense === "" &&
+      serviceType === ""
     ) {
       alert("Please fill all the required fields.");
       return;
+    } else if (
+      contactNo === "" ||
+      customerName === "" ||
+      selectedBrand === "" ||
+      screenRatio === "" ||
+      selectedProblem === "" ||
+      expense === "" ||
+      serviceType === ""
+    ) {
+      try {
+        const docId = Date.now().toString();
+        await setDoc(doc(db, "IncompleteForm", docId), {
+          contactNo: contactNo,
+          customerName: customerName,
+          selectedBrand: selectedBrand,
+          screenRatio: screenRatio,
+          selectedProblem: selectedProblem,
+          receiverName: receiverName,
+          expense: expense,
+          images: images,
+          serviceType: isFieldService ? "Field" : isLab ? "Lab" : "Shop",
+          otherExpenses: otherExpenses,
+          createdAt: new Date(),
+          status: "Incomplete",
+          docId: docId, // Add the docId to the document
+        });
+        alert("Data saved successfully with docId: " + docId);
+        setContactNo("");
+        setCustomerName("");
+        setSelectedBrand("");
+        setScreenRatio("");
+        setSelectedProblem("");
+        setExpense("");
+        setImages([]);
+        setServiceType("");
+        setQuery("");
+        setOtherExpenses("");
+      } catch (e) {
+        alert("Error", e);
+      }
     } else {
       try {
         const docId = Date.now().toString();
@@ -169,7 +244,8 @@ export default function Add_New() {
           receiverName: receiverName,
           expense: expense,
           images: images,
-          serviceType: serviceType,
+          serviceType: isFieldService ? "Field" : isLab ? "Lab" : "Shop",
+          otherExpenses: otherExpenses,
           createdAt: new Date(),
           status: "Pending",
           docId: docId, // Add the docId to the document
@@ -183,6 +259,8 @@ export default function Add_New() {
         setExpense("");
         setImages([]);
         setServiceType("");
+        setQuery("");
+        setOtherExpenses("");
       } catch (e) {
         alert("Error", e);
       }
@@ -207,150 +285,307 @@ export default function Add_New() {
     }
   };
 
-  return (
-    <ScrollView style={styles.container}>
-      {/* Customer Contact Number */}
-      <Text style={styles.label}>Customer Contact Number</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Enter Contact Number"
-        value={contactNo}
-        onChangeText={setContactNo}
-        keyboardType="phone-pad"
-      />
+  const data = [
+    { key: "customerContactNumber" },
+    { key: "customerName" },
+    { key: "brand" },
+    { key: "screenSize" },
+    { key: "problem" },
+    { key: "expense" },
+    { key: "serviceType" },
+    { key: "otherExpenses" },
+    { key: "imageClick" },
+    { key: "submitButton" },
+  ];
 
-      {/* Customer Name */}
-      <Text style={styles.label}>Customer Name</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Enter Customer Name"
-        value={customerName}
-        onChangeText={setCustomerName}
-      />
-
-      {/* Select Brand Dropdown */}
-      <Text style={styles.label}>Brand</Text>
-      <View>
-        <Autocomplete
-          data={
-            query
-              ? suggestions.filter((brand) =>
-                  brand.toLowerCase().includes(query.toLowerCase())
-                )
-              : []
-          }
-          defaultValue={query}
-          onChangeText={(text) => setQuery(text)}
-          placeholder="Type brand name"
-          onSelectItem={(item) => {
-            setSelectedBrand(item);
-            setQuery(item);
-          }}
-        />
-        {query && !suggestions.includes(query) && (
-          <TouchableOpacity onPress={handleAddSuggestion}>
-            <Text>Add "{query}" to suggestions</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Select Screen Size */}
-      <Text style={styles.label}>Screen Size (in inches)</Text>
-      <View>
-        <Autocomplete
-          data={
-            screenSizeQuery
-              ? screenSizeSuggestions.filter((size) =>
-                  size.toLowerCase().includes(screenSizeQuery.toLowerCase())
-                )
-              : []
-          }
-          defaultValue={screenSizeQuery}
-          onChangeText={(text) => setScreenSizeQuery(text)}
-          placeholder="Type screen size"
-          onSelectItem={(item) => {
-            setScreenRatio(item);
-            setScreenSizeQuery(item);
-          }}
-        />
-        {screenSizeQuery &&
-          !screenSizeSuggestions.includes(screenSizeQuery) && (
-            <TouchableOpacity onPress={handleAddScreenSizeSuggestion}>
-              <Text>Add "{screenSizeQuery}" to suggestions</Text>
+  const renderItem = ({ item }) => {
+    switch (item.key) {
+      case "customerContactNumber":
+        return (
+          <View>
+            <Text style={styles.label}>Customer Contact Number</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter Contact Number"
+              value={contactNo}
+              onChangeText={setContactNo}
+              keyboardType="phone-pad"
+            />
+          </View>
+        );
+      case "customerName":
+        return (
+          <View>
+            <Text style={styles.label}>Customer Name</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter Customer Name"
+              value={customerName}
+              onChangeText={setCustomerName}
+            />
+          </View>
+        );
+      case "brand":
+        return (
+          <View>
+            <Text style={styles.label}>Brand</Text>
+            <View>
+              <TextInput
+                style={styles.input}
+                placeholder="Type brand name"
+                value={query}
+                onChangeText={(text) => setQuery(text)}
+              />
+              {query !== selectedBrand && (
+                <View style={styles.suggestionBox}>
+                  <FlatList
+                    data={
+                      query
+                        ? suggestions.filter((brand) =>
+                            brand.toLowerCase().includes(query.toLowerCase())
+                          )
+                        : []
+                    }
+                    renderItem={({ item }) => (
+                      <TouchableOpacity
+                        onPress={() => {
+                          setSelectedBrand(item);
+                          setQuery(item);
+                        }}
+                      >
+                        <Text style={styles.suggestionText}>{item}</Text>
+                      </TouchableOpacity>
+                    )}
+                    keyExtractor={(item) => item}
+                  />
+                </View>
+              )}
+              {query && !suggestions.includes(query) && (
+                <TouchableOpacity onPress={handleAddSuggestion}>
+                  <Text>Add "{query}" to suggestions</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        );
+      case "screenSize":
+        return (
+          <View>
+            <Text style={styles.label}>Screen Size (in inches)</Text>
+            <View>
+              <TextInput
+                style={styles.input}
+                placeholder="Type screen size"
+                value={screenSizeQuery}
+                onChangeText={(text) => setScreenSizeQuery(text)}
+              />
+              {screenSizeQuery !== screenRatio && (
+                <View style={styles.suggestionBox}>
+                  <FlatList
+                    data={
+                      screenSizeQuery
+                        ? screenSizeSuggestions.filter((size) =>
+                            size
+                              .toLowerCase()
+                              .includes(screenSizeQuery.toLowerCase())
+                          )
+                        : []
+                    }
+                    renderItem={({ item }) => (
+                      <TouchableOpacity
+                        onPress={() => {
+                          setScreenRatio(item);
+                          setScreenSizeQuery(item);
+                        }}
+                      >
+                        <Text style={styles.suggestionText}>{item}</Text>
+                      </TouchableOpacity>
+                    )}
+                    keyExtractor={(item) => item}
+                  />
+                </View>
+              )}
+              {screenSizeQuery &&
+                !screenSizeSuggestions.includes(screenSizeQuery) && (
+                  <TouchableOpacity onPress={handleAddScreenSizeSuggestion}>
+                    <Text>Add "{screenSizeQuery}" to suggestions</Text>
+                  </TouchableOpacity>
+                )}
+            </View>
+          </View>
+        );
+      case "problem":
+        return (
+          <View>
+            <Text style={styles.label}>Select Problem</Text>
+            <View>
+              <TextInput
+                style={styles.input}
+                placeholder="Type problem"
+                value={problemQuery}
+                onChangeText={(text) => setProblemQuery(text)}
+              />
+              {problemQuery !== selectedProblem && (
+                <View style={styles.suggestionBox}>
+                  <FlatList
+                    data={
+                      problemQuery
+                        ? problemSuggestions.filter((problem) =>
+                            problem
+                              .toLowerCase()
+                              .includes(problemQuery.toLowerCase())
+                          )
+                        : []
+                    }
+                    renderItem={({ item }) => (
+                      <TouchableOpacity
+                        onPress={() => {
+                          setSelectedProblem(item);
+                          setProblemQuery(item);
+                        }}
+                      >
+                        <Text style={styles.suggestionText}>{item}</Text>
+                      </TouchableOpacity>
+                    )}
+                    keyExtractor={(item) => item}
+                  />
+                </View>
+              )}
+              {problemQuery && !problemSuggestions.includes(problemQuery) && (
+                <TouchableOpacity onPress={handleAddProblemSuggestion}>
+                  <Text>Add "{problemQuery}" to suggestions</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        );
+      case "expense":
+        return (
+          <View>
+            <Text style={styles.label}>Expense</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter Expense in Rupees"
+              value={expense}
+              onChangeText={setExpense}
+              keyboardType="numeric"
+            />
+          </View>
+        );
+      case "serviceType":
+        return (
+          <View>
+            <Text style={styles.label}> Service Type</Text>
+            <View style={styles.serviceTypeToggleContainer}>
+              <View style={styles.serviceTypeToggle}>
+                <TouchableOpacity
+                  style={styles.serviceTypeToggleBox}
+                  onPress={() => {
+                    setIsFieldService(true);
+                    setIsShop(false);
+                    setIsLab(false);
+                  }}
+                >
+                  <View
+                    style={[
+                      styles.serviceTypeToggleBoxInner,
+                      isFieldService
+                        ? styles.serviceTypeToggleBoxInnerActive
+                        : null,
+                    ]}
+                  />
+                </TouchableOpacity>
+                <Text style={styles.serviceTypeToggleText}>Field</Text>
+              </View>
+              <View style={styles.serviceTypeToggle}>
+                <TouchableOpacity
+                  style={styles.serviceTypeToggleBox}
+                  onPress={() => {
+                    setIsFieldService(false);
+                    setIsShop(true);
+                    setIsLab(false);
+                  }}
+                >
+                  <View
+                    style={[
+                      styles.serviceTypeToggleBoxInner,
+                      isShop ? styles.serviceTypeToggleBoxInnerActive : null,
+                    ]}
+                  />
+                </TouchableOpacity>
+                <Text style={styles.serviceTypeToggleText}>Shop</Text>
+              </View>
+              <View style={styles.serviceTypeToggle}>
+                <TouchableOpacity
+                  style={styles.serviceTypeToggleBox}
+                  onPress={() => {
+                    setIsFieldService(false);
+                    setIsShop(false);
+                    setIsLab(true);
+                  }}
+                >
+                  <View
+                    style={[
+                      styles.serviceTypeToggleBoxInner,
+                      isLab ? styles.serviceTypeToggleBoxInnerActive : null,
+                    ]}
+                  />
+                </TouchableOpacity>
+                <Text style={styles.serviceTypeToggleText}>Lab</Text>
+              </View>
+            </View>
+            {isFieldService && (
+              <View>
+                <Text style={styles.label}>Other Expenses</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter Other Expenses in Rupees"
+                  value={otherExpenses}
+                  onChangeText={setOtherExpenses}
+                  keyboardType="numeric"
+                />
+              </View>
+            )}
+          </View>
+        );
+      case "imageClick":
+        return (
+          <View>
+            <TouchableOpacity
+              onPress={handleImageClick}
+              style={styles.imagePickerButton}
+            >
+              <Text style={styles.imagePickerButtonText}>Click Image</Text>
             </TouchableOpacity>
-          )}
-      </View>
-
-      {/* Select Problem */}
-      <Text style={styles.label}>Select Problem</Text>
-      <View>
-        <Autocomplete
-          data={
-            problemQuery
-              ? problemSuggestions.filter((problem) =>
-                  problem.toLowerCase().includes(problemQuery.toLowerCase())
-                )
-              : []
-          }
-          defaultValue={problemQuery}
-          onChangeText={(text) => setProblemQuery(text)}
-          placeholder="Type problem"
-          onSelectItem={(item) => {
-            setSelectedProblem(item);
-            setProblemQuery(item);
-          }}
-        />
-        {problemQuery && !problemSuggestions.includes(problemQuery) && (
-          <TouchableOpacity onPress={handleAddProblemSuggestion}>
-            <Text>Add "{problemQuery}" to suggestions</Text>
+            <ScrollView horizontal={true}>
+              {images.map((image, index) => (
+                <Image
+                  key={index}
+                  source={{ uri: image.uri }}
+                  style={styles.image}
+                />
+              ))}
+            </ScrollView>
+          </View>
+        );
+      case "submitButton":
+        return (
+          <TouchableOpacity onPress={handleSubmit}>
+            <Text style={styles.submitButton}>Submit</Text>
           </TouchableOpacity>
-        )}
-      </View>
+        );
+      default:
+        return null;
+    }
+  };
 
-      {/* Expense */}
-      <Text style={styles.label}>Expense</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Enter Expense in Rupees"
-        value={expense}
-        onChangeText={setExpense}
-        keyboardType="numeric"
-      />
-
-      {/* Select Service Type Dropdown */}
-      <Text style={styles.label}> Service Type</Text>
-      <View style={styles.pickerContainer}>
-        <Picker
-          selectedValue={serviceType}
-          style={styles.picker}
-          onValueChange={(itemValue) => setServiceType(itemValue)}
-        >
-          <Picker.Item label="Select Service Type" value="" />
-          <Picker.Item label="Shop" value="Shop" />
-          <Picker.Item label="Field" value="Field" />
-        </Picker>
-      </View>
-
-      {/* Image Selection Button */}
-      <TouchableOpacity
-        onPress={handleImagePicker}
-        style={styles.imagePickerButton}
-      >
-        <Text style={styles.imagePickerButtonText}>Select Images</Text>
-      </TouchableOpacity>
-
-      {/* Display Selected Images */}
-      <View style={styles.imageContainer}>
-        {images.map((image, index) => (
-          <Image key={index} source={{ uri: image.uri }} style={styles.image} />
-        ))}
-      </View>
-
-      {/* Submit Button */}
-      <TouchableOpacity onPress={handleSubmit}>
-        <Text style={styles.submitButton}>Submit</Text>
-      </TouchableOpacity>
-    </ScrollView>
+  return (
+    <FlatList
+      data={data}
+      renderItem={renderItem}
+      keyExtractor={(item) => item.key}
+      contentContainerStyle={styles.container}
+    />
   );
 }
 
@@ -414,10 +649,51 @@ const styles = StyleSheet.create({
     fontSize: 17,
     marginBottom: 20,
   },
-  autocompleteContainer: {
+  suggestionBox: {
     borderColor: Colors.primary,
     borderWidth: 1,
     borderRadius: 5,
+    padding: 10,
+  },
+  suggestionText: {
+    fontSize: 18,
+    padding: 10,
+  },
+  serviceTypeToggleContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 10,
+    borderRadius: 10,
+    // backgroundColor: Colors.primary,
     marginBottom: 15,
+  },
+  serviceTypeToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  serviceTypeToggleBox: {
+    width: 20,
+    height: 20,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: Colors.white,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+  },
+  serviceTypeToggleBoxInner: {
+    width: 15,
+    height: 15,
+    borderRadius: 5,
+    backgroundColor: Colors.white,
+  },
+  serviceTypeToggleBoxInnerActive: {
+    backgroundColor: Colors.primary,
+  },
+  serviceTypeToggleText: {
+    fontSize: 18,
+    color: Colors.white,
+    fontWeight: "bold",
   },
 });

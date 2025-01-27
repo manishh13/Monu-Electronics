@@ -17,6 +17,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../../FirebaseConfig/firebaseConfig";
 import Icon from "react-native-vector-icons/MaterialIcons"; // Use any icon library
+import Colors from "../../constant/Colors";
 
 // Sample data for pending cases (for testing purposes)
 const samplePendingCasesData = [
@@ -27,6 +28,7 @@ const samplePendingCasesData = [
     contactNo: "1234567890",
     amt: 500,
     status: "Pending",
+    serviceType: "Lab",
   },
   {
     id: 2,
@@ -35,6 +37,7 @@ const samplePendingCasesData = [
     contactNo: "9876543210",
     amt: 300,
     status: "Pending",
+    serviceType: "Shop",
   },
   {
     id: 3,
@@ -43,6 +46,7 @@ const samplePendingCasesData = [
     contactNo: "1122334455",
     amt: 200,
     status: "Pending",
+    serviceType: "Field",
   },
 ];
 
@@ -50,6 +54,8 @@ export default function PendingCases() {
   const [pendingCasesData, setPendingCasesData] = useState(
     samplePendingCasesData
   );
+  const [filteredCases, setFilteredCases] = useState(samplePendingCasesData);
+  const [filter, setFilter] = useState("All");
 
   // Fetch pending cases from Firestore
   const getPendingCases = async () => {
@@ -64,6 +70,7 @@ export default function PendingCases() {
         cases.push({ id: doc.id, ...doc.data() });
       });
       setPendingCasesData(cases);
+      setFilteredCases(cases);
     } catch (e) {
       console.log("Pending Case Exception - " + e.message);
     }
@@ -111,6 +118,18 @@ export default function PendingCases() {
     getPendingCases();
   }, []);
 
+  const handleFilter = (filter) => {
+    setFilter(filter);
+    if (filter === "All") {
+      setFilteredCases(pendingCasesData);
+    } else {
+      const filtered = pendingCasesData.filter(
+        (caseItem) => caseItem.serviceType === filter
+      );
+      setFilteredCases(filtered);
+    }
+  };
+
   return (
     <>
       <Text
@@ -127,6 +146,44 @@ export default function PendingCases() {
         Pending Cases
       </Text>
       <View style={styles.container}>
+        <View style={styles.filterContainer}>
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              filter === "All" ? styles.activeFilterButton : null,
+            ]}
+            onPress={() => handleFilter("All")}
+          >
+            <Text style={styles.filterButtonText}>All</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              filter === "Lab" ? styles.activeFilterButton : null,
+            ]}
+            onPress={() => handleFilter("Lab")}
+          >
+            <Text style={styles.filterButtonText}>Lab</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              filter === "Shop" ? styles.activeFilterButton : null,
+            ]}
+            onPress={() => handleFilter("Shop")}
+          >
+            <Text style={styles.filterButtonText}>Shop</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              filter === "Field" ? styles.activeFilterButton : null,
+            ]}
+            onPress={() => handleFilter("Field")}
+          >
+            <Text style={styles.filterButtonText}>Field</Text>
+          </TouchableOpacity>
+        </View>
         {/* Table Header */}
         <View style={styles.header}>
           <Text style={styles.headerCell}>Sr.No</Text>
@@ -139,7 +196,7 @@ export default function PendingCases() {
 
         {/* Table Body */}
         <FlatList
-          data={pendingCasesData}
+          data={filteredCases}
           renderItem={renderItem}
           keyExtractor={(item) => item.id.toString()}
         />
@@ -154,6 +211,25 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 10,
+  },
+  filterContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 10,
+    marginBottom: 10,
+  },
+  filterButton: {
+    backgroundColor: Colors.Gray,
+    padding: 10,
+    borderRadius: 5,
+  },
+  activeFilterButton: {
+    backgroundColor: Colors.primary,
+  },
+  filterButtonText: {
+    color: "#fff",
+    fontSize: 16,
   },
   header: {
     flexDirection: "row",

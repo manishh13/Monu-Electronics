@@ -1,4 +1,3 @@
-// Import required libraries
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -13,6 +12,7 @@ import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "../../FirebaseConfig/firebaseConfig";
 import * as FileSystem from "expo-file-system";
+import * as Sharing from "expo-sharing";
 
 // Function to generate bill
 const generateBill = async (caseDetails) => {
@@ -55,21 +55,42 @@ const generateBill = async (caseDetails) => {
     </table>
   `;
 
-  // Create a new folder for bills in the root directory
-  const folderPath = `${FileSystem.cacheDirectory}/Bills`;
-  await FileSystem.makeDirectoryAsync(folderPath, { intermediates: true });
+  try {
+    // Create a new folder for bills in the document directory
+    const folderPath = `${FileSystem.documentDirectory}Bills`;
+    console.log("Folder Path:", folderPath);
 
-  // Create a new file with the bill content
-  const filePath = `${folderPath}/bill_${id}.html`;
-  FileSystem.writeAsStringAsync(filePath, billContent)
-    .then(() => {
-      console.log("Bill saved to file");
-      console.log("file path", filePath);
-      console.log("folder path", FileSystem);
-    })
-    .catch((error) => {
-      console.error("Error saving bill to file:", error);
-    });
+    // Check if the folder exists, if not, create it
+    const folderInfo = await FileSystem.getInfoAsync(folderPath);
+    if (!folderInfo.exists) {
+      console.log("Creating folder...");
+      await FileSystem.makeDirectoryAsync(folderPath, { intermediates: true });
+    }
+
+    // Create a new file with the bill content
+    const filePath = `${folderPath}/bill_${id}.html`;
+    console.log("File Path:", filePath);
+
+    await FileSystem.writeAsStringAsync(filePath, billContent);
+    console.log("Bill saved to file:", filePath);
+
+    // Verify the file exists
+    const fileInfo = await FileSystem.getInfoAsync(filePath);
+    if (fileInfo.exists) {
+      console.log("File exists:", fileInfo);
+    } else {
+      console.log("File does not exist.");
+    }
+
+    // Share the file
+    if (await Sharing.isAvailableAsync()) {
+      await Sharing.shareAsync(filePath);
+    } else {
+      console.log("Sharing is not available on this platform.");
+    }
+  } catch (error) {
+    console.error("Error saving or sharing bill:", error);
+  }
 };
 
 // Function to handle WhatsApp message
@@ -80,11 +101,10 @@ const handleWhatsAppMessage = (contactNo, docId) => {
   );
 };
 
-// Function to fetch completed cases from Firestore
-
 // Main component
 export default function PendingCases() {
   const [pendingCasesData, setPendingCasesData] = useState([]);
+
   const getCompletedCases = async () => {
     try {
       const q = query(
@@ -102,6 +122,7 @@ export default function PendingCases() {
       console.log("Completed Case Exception - " + e.message);
     }
   };
+
   useEffect(() => {
     getCompletedCases();
   }, []);
