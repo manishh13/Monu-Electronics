@@ -30,6 +30,7 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      "react-native-share",
       "expo-router",
       [
         "expo-splash-screen",

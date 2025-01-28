@@ -17,46 +17,152 @@ import * as Print from "expo-print";
 
 // Function to generate bill
 const generateBill = async (caseDetails) => {
-  const { id, selectedProblem, createdAt, contactNo, expense } = caseDetails;
-
-  // Create bill content
-  const billContent = `
-    <h1 style="text-align: center;">Bill Details</h1>
-    <table style="width: 100%; border-collapse: collapse;">
-      <tr>
-        <th style="border: 1px solid #000; padding: 8px;">Case ID</th>
-        <td style="border: 1px solid #000; padding: 8px;">${id}</td>
-      </tr>
-      <tr>
-        <th style="border: 1px solid #000; padding: 8px;">Case Type</th>
-        <td style="border: 1px solid #000; padding: 8px;">${selectedProblem}</td>
-      </tr>
-      <tr>
-        <th style="border: 1px solid #000; padding: 8px;">Date</th>
-        <td style="border: 1px solid #000; padding: 8px;">${createdAt
-          ?.toDate()
-          ?.toLocaleDateString()}</td>
-      </tr>
-      <tr>
-        <th style="border: 1px solid #000; padding: 8px;">Contact No</th>
-        <td style="border: 1px solid #000; padding: 8px;">${contactNo}</td>
-      </tr>
-      <tr>
-        <th style="border: 1px solid #000; padding: 8px;">Amount</th>
-        <td style="border: 1px solid #000; padding: 8px;">${expense}</td>
-      </tr>
-      <tr>
-        <th style="border: 1px solid #000; padding: 8px;">Payment Method</th>
-        <td style="border: 1px solid #000; padding: 8px;">Cash</td>
-      </tr>
-      <tr>
-        <th style="border: 1px solid #000; padding: 8px;">Payment Status</th>
-        <td style="border: 1px solid #000; padding: 8px;">Paid</td>
-      </tr>
-    </table>
-  `;
-
   try {
+    // Create bill content
+    const items = [
+      {
+        particulars: caseDetails.selectedProblem,
+        rate: caseDetails.expense,
+        amount: caseDetails.expense,
+      },
+    ];
+    const billContent = `
+      <div style="display: flex; justify-content: center; item-align:center;width: 100%;">
+        <div
+          style="
+            border: 2px solid black;
+            width: 65%;
+            height: auto;
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 2px;
+          "
+        >
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+
+              height: 30px;
+            "
+          >
+            <h4>Mukesh Prajapati</h4>
+            <h2>Bill</h2>
+            <h4>Mob:9827204172</h4>
+          </div>
+          <div>
+            <h1 style="margin-top: 8px; text-align: center; font-size: 40px">
+              Monu Electronics
+            </h1>
+            <p style="margin-top: -20px">
+              Shop No:164,165,Ekta Market Naya Basera Turn,Kotra
+              Sultanabad,Bhopal(M.P.)
+            </p>
+          </div>
+          <hr style="width: 100%" />
+          <div>
+            <ul
+              style="
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                column-gap: 10px;
+              "
+            >
+              <li style="font-size: 14px; font-weight: bold">
+                All Type of LED-LCD TV Repairing
+              </li>
+              <li style="font-size: 14px; font-weight: bold">
+                All Type of LED-LCD Panel Repairing
+              </li>
+              <li style="font-size: 14px; font-weight: bold">
+                All Type Electronic Repairing here
+              </li>
+            </ul>
+          </div>
+          <div
+            style="
+              height: 30px;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+            "
+          >
+            <h5 style="font-size: 18px">Case-Id:${caseDetails.id}</h5>
+            <h5 style="font-size: 18px">Date:${caseDetails.createdAt
+              ?.toDate()
+              ?.toLocaleDateString()}</h5>
+          </div>
+          <div>
+            <h3>M/s:${caseDetails.contactNo}</h3>
+          </div>
+          <div>
+            <table
+              style="
+                width: 100%;
+                height: 400px;
+                border-collapse: collapse;
+                border: 1px solid black;
+              "
+            >
+              <thead style="border-bottom: 1px solid black">
+                <tr style="width: 100%; border-bottom: 1px solid black">
+                  <th style="border-right: 1px solid black">S.No</th>
+                  <th style="border-right: 1px solid black">Particulars</th>
+
+                  <th style="border-right: 1px solid black">Rate</th>
+                  <th>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${items.map((item, index) => {
+                  return `<tr style="width: 100%">
+                    <td style="border-right: 1px solid black; text-align: center">
+                      ${index + 1}
+                    </td>
+                    <td style="border-right: 1px solid black; text-align: center">
+                     ${item.particulars}
+                    </td>
+
+                    <td style="border-right: 1px solid black; text-align: center">
+                      ${item.rate}
+                    </td>
+                    <td style="text-align: center">${item.amount}</td>
+                  </tr>`;
+                })}
+                <tr style="width: 100%; border-top: 1px solid black">
+                  <td
+                    colspan="3"
+                    style="
+                      border-left: 1px solid black;
+                      border-right: 1px solid black;
+                      text-align: center;
+                      padding-right: 10 px;
+                      font-weight: bold;
+                    "
+                  >
+                    Total
+                  </td>
+                  <td
+                    colspan="1"
+                    style="
+                      text-align: center;
+                      border-left: 1px solid black;
+                      border-right: 1px solid black;
+                      font-weight: bold;
+                    "
+                  >
+                    ${items.reduce((acc, item) => acc + item.amount, 0)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        </div>
+    `;
+
     // Create a new folder for bills in the document directory
     const folderPath = `${FileSystem.documentDirectory}Bills`;
     console.log("Folder Path:", folderPath);
@@ -69,7 +175,7 @@ const generateBill = async (caseDetails) => {
     }
 
     // Create a new PDF file with the bill content
-    const filePath = `${folderPath}/bill_${id}.pdf`;
+    const filePath = `${folderPath}/bill_${caseDetails.id}.pdf`;
     console.log("File Path:", filePath);
 
     // Generate PDF and get the file URI
@@ -97,28 +203,36 @@ const generateBill = async (caseDetails) => {
       console.log("File does not exist.");
     }
 
-    // Share the file
-    if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(filePath);
-    } else {
-      console.log("Sharing is not available on this platform.");
-    }
+    return filePath;
   } catch (error) {
     console.error("Error saving or sharing bill:", error);
   }
 };
 
-// Function to handle WhatsApp message
-const handleWhatsAppMessage = (contactNo, docId) => {
-  const url = `https://wa.me/+91${contactNo}?text=Your case no ${docId} has been resolved. Thank you!`;
-  Linking.openURL(url).catch((err) =>
-    console.log("Error opening WhatsApp: " + err)
-  );
+// Function to share bill on WhatsApp
+const shareBillOnWhatsApp = async (contactNo, docId, caseDetails) => {
+  try {
+    // Generate bill
+    const filePath = await generateBill(caseDetails);
+
+    // Open WhatsApp with the contact's phone number
+    const url = `whatsapp://send?phone=+91${contactNo}`;
+    await Linking.openURL(url);
+
+    // Share the file on WhatsApp
+    await Sharing.shareAsync(filePath, {
+      dialogTitle: "Share Bill",
+      UTI: "com.adobe.pdf",
+    });
+  } catch (error) {
+    console.error("Error sharing bill on WhatsApp:", error);
+  }
 };
 
 // Main component
 export default function PendingCases() {
   const [pendingCasesData, setPendingCasesData] = useState([]);
+  const [error, setError] = useState(null);
 
   const getCompletedCases = async () => {
     try {
@@ -133,8 +247,9 @@ export default function PendingCases() {
       });
       setPendingCasesData(cases);
       console.log("Completed cases fetched successfully", cases);
-    } catch (e) {
-      console.log("Completed Case Exception - " + e.message);
+    } catch (error) {
+      setError(error);
+      console.error("Error fetching completed cases:", error);
     }
   };
 
@@ -154,18 +269,20 @@ export default function PendingCases() {
       <Text style={styles.cellWide}>{item.expense}</Text>
       <TouchableOpacity
         style={styles.iconCell}
-        onPress={() => generateBill(item)} // Call bill generation
-      >
-        <Icon name="file-text" size={20} color="#000" />
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.iconCell}
-        onPress={() => handleWhatsAppMessage(item?.contactNo, item?.docId)}
+        onPress={() => shareBillOnWhatsApp(item?.contactNo, item?.docId, item)}
       >
         <FontAwesome name="whatsapp" size={24} color="green" />
       </TouchableOpacity>
     </View>
   );
+
+  if (error) {
+    return (
+      <View>
+        <Text>Error: {error.message}</Text>
+      </View>
+    );
+  }
 
   return (
     <>
@@ -190,8 +307,7 @@ export default function PendingCases() {
           <Text style={styles.headerCell}>Date</Text>
           <Text style={styles.headerCell}>Contact No</Text>
           <Text style={styles.headerCell}>Amt</Text>
-          <Text style={styles.headerCell}>Bill</Text>
-          <Text style={styles.headerCell}>Msg</Text>
+          <Text style={styles.headerCell}>Share</Text>
         </View>
 
         {/* Table Body */}
